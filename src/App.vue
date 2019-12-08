@@ -115,8 +115,9 @@ export default
             @songs.push song
 
   created: ->
-    window.app = this
-    @gameDir = 'D:\\SteamLibrary\\steamapps\\common\\Beat Saber'
+    fs.access 'config.json', fs.constants.F_OK, (err) =>
+      return if err
+      @readJson 'config.json', ({ @gameDir }) =>
 
   methods:
     setGameDir: ->
@@ -126,6 +127,7 @@ export default
           @alert 'Game Directory should have Beat Saber_Data directory'
         else
           @gameDir = dir
+          fs.writeFile 'config.json', JSON.stringify({ @gameDir }), ->
 
     alert: (text) ->
       @alerts.push text
