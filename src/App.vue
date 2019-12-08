@@ -19,7 +19,7 @@
       <hr class="my-8">
     </div>
 
-    <div class="flex flex-row">
+    <div v-if="gameDir" class="flex flex-row">
 
       <div class="flex flex-col px-4">
         <div class="font-bold text-xl">Playlists</div>
@@ -28,6 +28,38 @@
              class="hover:underline cursor-pointer">
           {{ playlist.playlistTitle }}
         </div>
+
+        <button v-if="showCreatePlaylistBtn"
+                @click="newPlaylist"
+                class="mt-1 border focus:outline-none hover:bg-gray-100 px-2">
+          Create New
+        </button>
+      </div>
+
+      <div v-if="currentPlaylist" class="flex-grow flex flex-col mx-4">
+
+        <div class="text-2xl text-center mb-4">
+          <input v-model="currentPlaylist.playlistTitle"
+                 ref="playlistName"
+                 v-if="changingName"
+                 @keyup.enter="changingName = false"
+                 type="text"
+                 class="text-center border">
+          <h2 v-else @click="startChangingName">{{ currentPlaylist.playlistTitle }}</h2>
+        </div>
+
+        <button @click="savePlaylist" class="px-2 border focus:outline-none hover:bg-gray-100 mb-2">Save Playlist</button>
+        <button @click="addSongs" class="px-2 border focus:outline-none hover:bg-gray-100 mb-2">Add Songs</button>
+
+        <div v-if="browsingSongs">
+
+        </div>
+
+        <div v-else v-for="(song, index) in currentPlaylist.songs" class="mb-1">
+          <button @click="removeSong(index)" class="px-1 mr-2 border text-sm hover:bg-gray-100">X</button>
+          {{ song.songName || song.hash }}
+        </div>
+
       </div>
 
     </div>
@@ -45,6 +77,10 @@ export default
     alerts: []
     playlists: []
     songs: []
+    showCreatePlaylistBtn: true
+    currentPlaylist: null
+    browsingSongs: false
+    changingName: false
 
   watch:
     gameDir: ->
@@ -54,10 +90,12 @@ export default
         return @alert("Could not read playlists: #{ err.message }") if err
         for file in files then do (file) =>
           return if file == 'favorites.json'
-          fs.readFile @path('Playlists', file), (err, file) =>
+          fs.readFile @path('Playlists', file), (err, content) =>
             return @alert("Could not read playlist #{ file }: #{ err.message }") if err
             try
-              @playlists.push JSON.parse(file.toString())
+              playlist = JSON.parse(content.toString())
+              playlist._filename = file
+              @playlists.push playlist
             catch e
               return @alert("Playlist #{ file } is not JSON")
 
@@ -87,10 +125,45 @@ export default
       null
 
     path: (paths...) ->
-      path.join(@gameDir, paths...)
+      path.join @gameDir, paths...
 
     showPlaylist: (playlist) ->
-      log playlist
+      @currentPlaylist = playlist
+      @browsingSongs = false
+      @changingName = false
+
+    newPlaylist: ->
+      @showCreatePlaylistBtn = false
+      pl =
+        playlistTitle: 'New Playlist'
+        playlistAuthor: 'me'
+        playlistDescription: ''
+        _filename: "Playlist#{ Date.now() }.json"
+        songs: []
+      @playlists.push pl
+      @showPlaylist pl
+      @startChangingName()
+      await after 1000
+      @showCreatePlaylistBtn = true
+
+    startChangingName: ->
+      @changingName = true
+      @$nextTick =>
+        @$refs.playlistName.select()
+
+    savePlaylist: ->
+      name = @currentPlaylist._filename
+      content = JSON.stringify @currentPlaylist
+      fs.writeFile @path('Playlists', name), content, (err, res) =>
+        return @alert("Couldn't save file: #{ err.message }") if err
+        @alert('Playlist saved')
+
+    addSongs: ->
+      @browsingSongs = true
+
+    removeSong: (index) ->
+      @currentPlaylist.songs.splice(index, 1)
+
 </script>
 
 <style lang="stylus">
