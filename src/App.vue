@@ -49,10 +49,17 @@
         </div>
 
         <button @click="savePlaylist" class="px-2 border focus:outline-none hover:bg-gray-100 mb-2">Save Playlist</button>
-        <button @click="addSongs" class="px-2 border focus:outline-none hover:bg-gray-100 mb-2">Add Songs</button>
+        <button @click="browsingSongs = !browsingSongs"
+                class="px-2 border focus:outline-none hover:bg-gray-100 mb-2">
+          {{ browsingSongs ? 'See Added Songs' : 'Add Songs' }}
+        </button>
 
-        <div v-if="browsingSongs">
-
+        <div v-if="browsingSongs" class="shadow-lg p-2">
+          <div v-for="song in songs"
+               @click="addToPlaylist(song)"
+               class="cursor-pointer hover:underline">
+            {{ song.__label }}
+          </div>
         </div>
 
         <div v-else v-for="(song, index) in currentPlaylist.songs" class="mb-1">
@@ -69,6 +76,7 @@
 <script lang="coffee">
 { remote } = require 'electron'
 fs = remote.require 'fs'
+crypto = remote.require 'crypto'
 path = remote.require 'path'
 
 export default
@@ -88,19 +96,23 @@ export default
       @playlists = []
       fs.readdir @path('Playlists'), (err, files) =>
         return @alert("Could not read playlists: #{ err.message }") if err
-        for file in files then do (file) =>
-          return if file == 'favorites.json'
-          fs.readFile @path('Playlists', file), (err, content) =>
-            return @alert("Could not read playlist #{ file }: #{ err.message }") if err
-            try
-              playlist = JSON.parse(content.toString())
-              playlist._filename = file
-              @playlists.push playlist
-            catch e
-              return @alert("Playlist #{ file } is not JSON")
+        files.forEach (file) =>
+          return if file is 'favorites.json' or file.split('.').last() not in ['bplist', 'json']
+          @readJson @path('Playlists', file), (playlist) =>
+            playlist._filename = file
+            @playlists.push playlist
 
-      fs.readdir @path('Beat Saber_Data', 'CustomLevels'), (err, files) =>
+      songsDir = @path('Beat Saber_Data', 'CustomLevels')
+      fs.readdir songsDir, (err, dirs) =>
         return @alert("Could not read songs: #{ err.message }") if err
+        dirs.forEach (dir) =>
+          @readJson path.join(songsDir, dir, 'info.dat'), (song) =>
+            song._dir = dir
+            author = song._songAuthorName
+            if not author? or author.trim().length is 0 or author.match(/^(Mapped )?by/)?
+              author = song._levelAuthorName
+            song.__label = "#{ author } - #{ song._songName }"
+            @songs.push song
 
   created: ->
     window.app = this
@@ -158,13 +170,39 @@ export default
         return @alert("Couldn't save file: #{ err.message }") if err
         @alert('Playlist saved')
 
-    addSongs: ->
-      @browsingSongs = true
-
     removeSong: (index) ->
       @currentPlaylist.songs.splice(index, 1)
 
-</script>
+    readJson: (file, cb) ->
+      fs.readFile file, 'UTF-8', (err, content) =>
+        return @alert("Couldn't read #{ file }: #{ err.message }") if err
+        try
+          cb JSON.parse(content), content
+        catch e
+          @alert("File #{ file } is not JSON: #{ e.message }")
 
-<style lang="stylus">
-</style>
+    createMetadata: (songDir) ->
+      new Promise (resolve) =>
+        @readJson path.join(songDir, 'info.dat'), (info, infoRaw) ->
+          toHash = infoRaw
+          for set in info._difficultyBeatmapSets
+            for map in set._difficultyBeatmaps
+              toHash += fs.readFileSync(path.join(songDir, map._beatmapFilename), 'UTF-8')
+          hash = crypto.createHash('sha1').update(toHash).digest('hex')
+          metadata = JSON.stringify({ hash, scannedTime: Date.now() })
+          fs.writeFile path.join(songDir, 'metadata.dat'), metadata, (err) =>
+            return @alert("Couldn't save #{ path.join(songDir, 'metadata.dat') }: #{ err.message }") if err
+            resolve()
+
+    addToPlaylist: (song) ->
+      songDir = @path('Beat Saber_Data', 'CustomLevels', song._dir)
+      metadataPath = path.join(songDir, 'metadata.dat')
+      fs.access metadataPath, fs.constants.F_OK, (err) =>
+        if err
+          await @createMetadata(songDir)
+          @alert "Created metadata.dat for #{ song.__label }"
+        @readJson metadataPath, (metadata) =>
+          @currentPlaylist.songs.push(hash: metadata.hash, songName: song.__label)
+          @alert "Added #{ song.__label }"
+
+</script>
