@@ -38,6 +38,20 @@
 
       <div v-if="currentPlaylist" class="flex-grow flex flex-col mx-4">
 
+        <div v-if="confirmingRemoval" class="text-center">
+          <h3 class="text-xl">Are you sure you want to remove this playlist?</h3>
+          <br>
+          <button @click="confirmingRemoval = false" class="border px-4 hover:bg-teal-100">No</button>
+          <button @click="removePlaylist" class="border px-4 hover:bg-teal-100 ml-10">Yes</button>
+        </div>
+
+        <div class="text-right">
+          <button @click="confirmingRemoval = true"
+                  class="border px-2 text-gray-500 hover:text-gray-700 hover:border-gray-400">
+            remove playlist
+          </button>
+        </div>
+
         <div class="text-2xl text-center mb-4">
           <input v-model="currentPlaylist.playlistTitle"
                  ref="playlistName"
@@ -89,6 +103,7 @@ export default
     currentPlaylist: null
     browsingSongs: false
     changingName: false
+    confirmingRemoval: false
 
   watch:
     gameDir: ->
@@ -126,6 +141,7 @@ export default
         if err
           @alert 'Game Directory should have Beat Saber_Data directory'
         else
+          @showPlaylist(null)
           @gameDir = dir
           fs.writeFile 'config.json', JSON.stringify({ @gameDir }), ->
 
@@ -145,6 +161,7 @@ export default
       @currentPlaylist = playlist
       @browsingSongs = false
       @changingName = false
+      @confirmingRemoval = false
 
     newPlaylist: ->
       @showCreatePlaylistBtn = false
@@ -206,5 +223,13 @@ export default
         @readJson metadataPath, (metadata) =>
           @currentPlaylist.songs.push(hash: metadata.hash, songName: song.__label)
           @alert "Added #{ song.__label }"
+
+    removePlaylist: ->
+      @confirmingRemoval = false
+      fs.unlink @path('Playlists', @currentPlaylist._filename), (err) =>
+        return @alert("Couldn't remove #{ @currentPlaylist._filename }: #{ err.message }") if err
+        @alert("Removed playlist #{ @currentPlaylist._filename }")
+        @playlists.splice(@playlists.indexOf(@currentPlaylist), 1)
+        @showPlaylist(null)
 
 </script>
