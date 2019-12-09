@@ -69,7 +69,11 @@
         </button>
 
         <div v-if="browsingSongs" class="shadow-lg p-2">
-          <div v-for="song in songs"
+          <label class="font-bold">
+            Search:
+            <input class="border-b focus:outline-none px-2 mb-2 ml-2" v-model="songFilter" type="text">
+          </label>
+          <div v-for="song in filteredSongs"
                @click="addToPlaylist(song)"
                class="cursor-pointer hover:underline">
             {{ song.__label }}
@@ -104,6 +108,14 @@ export default
     browsingSongs: false
     changingName: false
     confirmingRemoval: false
+    songFilter: ''
+
+  computed:
+    filteredSongs: ->
+      filter = @songFilter.trim().toLowerCase()
+      return @songs if filter is ''
+      @songs.filter (s) ->
+        s.__label.toLowerCase().includes filter
 
   watch:
     gameDir: ->
@@ -162,6 +174,7 @@ export default
       @browsingSongs = false
       @changingName = false
       @confirmingRemoval = false
+      @songFilter = ''
 
     newPlaylist: ->
       @showCreatePlaylistBtn = false
