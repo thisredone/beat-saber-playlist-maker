@@ -121,6 +121,8 @@ export default
     gameDir: ->
       return if not @gameDir?
       @playlists = []
+      @songs = []
+
       fs.readdir @path('Playlists'), (err, files) =>
         return @alert("Could not read playlists: #{ err.message }") if err
         files.forEach (file) =>
@@ -129,17 +131,17 @@ export default
             playlist._filename = file
             @playlists.push playlist
 
-      songsDir = @path('Beat Saber_Data', 'CustomLevels')
-      fs.readdir songsDir, (err, dirs) =>
-        return @alert("Could not read songs: #{ err.message }") if err
-        dirs.forEach (dir) =>
-          @readJson path.join(songsDir, dir, 'info.dat'), (song) =>
-            song._dir = dir
-            author = song._songAuthorName
-            if not author? or author.trim().length is 0 or author.match(/^(Mapped )?by/)?
-              author = song._levelAuthorName
-            song.__label = "#{ author } - #{ song._songName }"
-            @songs.push song
+      @loadSongs @path('Beat Saber_Data', 'CustomLevels')
+
+      songCoreFoldersConfigFile = @path('UserData', 'SongCore', 'folders.xml')
+      fs.access songCoreFoldersConfigFile, fs.constants.F_OK, (err) =>
+        return if err
+        fs.readFile songCoreFoldersConfigFile, 'UTF-8', (err, content) =>
+          return if err
+          doc = (new DOMParser).parseFromString(content, 'text/xml')
+          doc.querySelectorAll('folder').forEach (folder) =>
+            if folder.querySelector('Pack').textContent is '0'
+              @loadSongs folder.querySelector('Path').textContent
 
   created: ->
     fs.access 'config.json', fs.constants.F_OK, (err) =>
@@ -156,6 +158,18 @@ export default
           @showPlaylist(null)
           @gameDir = dir
           fs.writeFile 'config.json', JSON.stringify({ @gameDir }), ->
+
+    loadSongs: (songsDir) ->
+      fs.readdir songsDir, (err, dirs) =>
+        return @alert("Could not read songs: #{ err.message }") if err
+        dirs.forEach (dir) =>
+          @readJson path.join(songsDir, dir, 'info.dat'), (song) =>
+            song._dir = path.join(songsDir, dir)
+            author = song._songAuthorName
+            if not author? or author.trim().length is 0 or author.match(/^(Mapped )?by/)?
+              author = song._levelAuthorName
+            song.__label = "#{ author } - #{ song._songName }"
+            @songs.push song
 
     alert: (text) ->
       @alerts.push text
@@ -227,11 +241,10 @@ export default
             resolve()
 
     addToPlaylist: (song) ->
-      songDir = @path('Beat Saber_Data', 'CustomLevels', song._dir)
-      metadataPath = path.join(songDir, 'metadata.dat')
+      metadataPath = path.join(song._dir, 'metadata.dat')
       fs.access metadataPath, fs.constants.F_OK, (err) =>
         if err
-          await @createMetadata(songDir)
+          await @createMetadata(song._dir)
           @alert "Created metadata.dat for #{ song.__label }"
         @readJson metadataPath, (metadata) =>
           @currentPlaylist.songs.push(hash: metadata.hash, songName: song.__label)
