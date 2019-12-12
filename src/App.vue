@@ -68,15 +68,24 @@
           {{ browsingSongs ? 'See Added Songs' : 'Add Songs' }}
         </button>
 
-        <div v-if="browsingSongs" class="shadow-lg p-2">
-          <label class="font-bold">
-            Search:
-            <input class="border-b focus:outline-none px-2 mb-2 ml-2" v-model="songFilter" type="text">
-          </label>
-          <div v-for="song in filteredSongs"
-               @click="addToPlaylist(song)"
-               class="cursor-pointer hover:underline">
-            {{ song.__label }}
+        <div v-if="browsingSongs" class="shadow-lg p-2 flex flex-col">
+          <div class="flex justify-between">
+            <label class="font-bold">
+              Search:
+              <input class="border-b focus:outline-none px-2 mb-2 ml-2" v-model="songFilter" type="text">
+            </label>
+            <button @click="addAllToPlaylist"
+                    v-if="!addingAllSongs"
+                    class="self-center border px-2 text-sm hover:text-black hover:border-gray-400">
+              Add all
+            </button>
+          </div>
+          <div>
+            <div v-for="song in filteredSongs"
+                 @click="addToPlaylist(song)"
+                 class="cursor-pointer hover:underline">
+              {{ song.__label }}
+            </div>
           </div>
         </div>
 
@@ -109,6 +118,7 @@ export default
     changingName: false
     confirmingRemoval: false
     songFilter: ''
+    addingAllSongs: false
 
   computed:
     filteredSongs: ->
@@ -240,15 +250,28 @@ export default
             return @alert("Couldn't save #{ path.join(songDir, 'metadata.dat') }: #{ err.message }") if err
             resolve()
 
-    addToPlaylist: (song) ->
+    addToPlaylist: (song, { silent } = {}) ->
       metadataPath = path.join(song._dir, 'metadata.dat')
-      fs.access metadataPath, fs.constants.F_OK, (err) =>
-        if err
-          await @createMetadata(song._dir)
-          @alert "Created metadata.dat for #{ song.__label }"
-        @readJson metadataPath, (metadata) =>
-          @currentPlaylist.songs.push(hash: metadata.hash, songName: song.__label)
-          @alert "Added #{ song.__label }"
+      new Promise (resolve) =>
+        fs.access metadataPath, fs.constants.F_OK, (err) =>
+          if err
+            await @createMetadata(song._dir)
+            @alert("Created metadata.dat for #{ song.__label }") if not silent
+          @readJson metadataPath, (metadata) =>
+            if @currentPlaylist.songs.some (s) -> s.hash is metadata.hash
+              resolve(false)
+            else
+              @currentPlaylist.songs.push(hash: metadata.hash, songName: song.__label)
+              @alert("Added #{ song.__label }") if not silent
+              resolve(true)
+
+    addAllToPlaylist: ->
+      @addingAllSongs = true
+      added = 0
+      await Promise.all @filteredSongs.map (s) =>
+        added++ if await @addToPlaylist(s, silent: true)
+      @alert "Added #{ added } songs"
+      @addingAllSongs = false
 
     removePlaylist: ->
       @confirmingRemoval = false
