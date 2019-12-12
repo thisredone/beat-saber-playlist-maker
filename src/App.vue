@@ -284,7 +284,7 @@ export default
       @browsingSongs = false
 
     addAllUnplaylisted: ->
-      playlisted = new Set((app.playlists.map (p) -> p.songs.map (s) -> s.hash).flat())
+      playlisted = new Set((@playlists.map (p) -> p.songs.map (s) -> s.hash).flat())
       @addAllToPlaylist(notThese: playlisted)
 
     removePlaylist: ->
