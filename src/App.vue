@@ -74,11 +74,18 @@
               Search:
               <input class="border-b focus:outline-none px-2 mb-2 ml-2" v-model="songFilter" type="text">
             </label>
-            <button @click="addAllToPlaylist"
-                    v-if="!addingAllSongs"
-                    class="self-center border px-2 text-sm hover:text-black hover:border-gray-400">
-              Add all
-            </button>
+            <div class="self-center flex">
+              <button @click="addAllUnplaylisted"
+                      v-if="!addingAllSongs"
+                      class="border px-2 text-sm hover:text-black hover:border-gray-400 mr-2">
+                Add unplaylisted
+              </button>
+              <button @click="addAllToPlaylist"
+                      v-if="!addingAllSongs"
+                      class="border px-2 text-sm hover:text-black hover:border-gray-400">
+                Add all
+              </button>
+            </div>
           </div>
           <div>
             <div v-for="song in filteredSongs"
@@ -250,7 +257,7 @@ export default
             return @alert("Couldn't save #{ path.join(songDir, 'metadata.dat') }: #{ err.message }") if err
             resolve()
 
-    addToPlaylist: (song, { silent } = {}) ->
+    addToPlaylist: (song, { silent, notThese } = {}) ->
       metadataPath = path.join(song._dir, 'metadata.dat')
       new Promise (resolve) =>
         fs.access metadataPath, fs.constants.F_OK, (err) =>
@@ -258,20 +265,27 @@ export default
             await @createMetadata(song._dir)
             @alert("Created metadata.dat for #{ song.__label }") if not silent
           @readJson metadataPath, (metadata) =>
-            if @currentPlaylist.songs.some (s) -> s.hash is metadata.hash
+            if notThese?.has(metadata.hash)
+              resolve(false)
+            else if @currentPlaylist.songs.some (s) -> s.hash is metadata.hash
               resolve(false)
             else
               @currentPlaylist.songs.push(hash: metadata.hash, songName: song.__label)
               @alert("Added #{ song.__label }") if not silent
               resolve(true)
 
-    addAllToPlaylist: ->
+    addAllToPlaylist: ({ notThese } = {}) ->
       @addingAllSongs = true
       added = 0
       await Promise.all @filteredSongs.map (s) =>
-        added++ if await @addToPlaylist(s, silent: true)
+        added++ if await @addToPlaylist(s, { notThese, silent: true })
       @alert "Added #{ added } songs"
       @addingAllSongs = false
+      @browsingSongs = false
+
+    addAllUnplaylisted: ->
+      playlisted = new Set((app.playlists.map (p) -> p.songs.map (s) -> s.hash).flat())
+      @addAllToPlaylist(notThese: playlisted)
 
     removePlaylist: ->
       @confirmingRemoval = false
