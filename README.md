@@ -10,6 +10,7 @@ https://github.com/thisredone/beat-saber-playlist-maker/releases
 ## Features
 - creates/modifies/removes playlists
 - works with songs downloaded from any source
+- can create playlist from all unplaylisted songs
 - creates metadata if needed
 - looks into SongCore folders.xml with Pack=0
 
