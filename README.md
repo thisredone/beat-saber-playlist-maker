@@ -14,4 +14,4 @@ https://github.com/thisredone/beat-saber-playlist-maker/releases
 - creates metadata if needed
 - looks into SongCore folders.xml with Pack=0
 
-![image](https://user-images.githubusercontent.com/1191844/70481062-b5e6ff80-1ae1-11ea-91f0-baf948ef31f1.png)
+![image](https://user-images.githubusercontent.com/1191844/70755574-8121b500-1d3a-11ea-973d-29bb0354afd3.png)
