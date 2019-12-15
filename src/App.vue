@@ -63,6 +63,7 @@
         </div>
 
         <button @click="savePlaylist" class="px-2 border focus:outline-none hover:bg-gray-100 mb-2">Save Playlist</button>
+        <button @click="removeDuplicates" class="px-2 border focus:outline-none hover:bg-gray-100 mb-2">Remove duplicates</button>
         <button @click="browsingSongs = !browsingSongs"
                 class="px-2 border focus:outline-none hover:bg-gray-100 mb-2">
           {{ browsingSongs ? 'See Added Songs' : 'Add Songs' }}
@@ -214,13 +215,16 @@ export default
       path.join @gameDir, paths...
 
     showPlaylist: (playlist) ->
-      @$set this, 'currentPlaylist', playlist
+      @currentPlaylist = playlist
       if playlist?
         if not @hashToLabel and @currentPlaylist.songs.some (s) -> not s.songName?
           await @fillHashToLabel()
+        fixedCount = 0
         for song, i in @currentPlaylist.songs when not song.songName?
           song.songName = @hashToLabel[song.hash]
+          fixedCount++ if song.songName?
           @$set @currentPlaylist.songs, i, song
+        @savePlaylist("Corrected #{ fixedCount } entries") if fixedCount
 
       @browsingSongs = false
       @changingName = false
@@ -246,15 +250,29 @@ export default
       @$nextTick =>
         @$refs.playlistName.select()
 
-    savePlaylist: ->
+    savePlaylist: (reason) ->
+      @alert(reason) if reason?
       name = @currentPlaylist._filename
       content = JSON.stringify @currentPlaylist
       fs.writeFile @path('Playlists', name), content, (err, res) =>
         return @alert("Couldn't save file: #{ err.message }") if err
-        @alert('Playlist saved')
+        @alert 'Playlist saved'
 
     removeSong: (index) ->
       @currentPlaylist.songs.splice(index, 1)
+
+    removeDuplicates: ->
+      hashes = {}
+      removedCount = 0
+      for song, i in @currentPlaylist.songs by -1
+        if hashes[song.hash]
+          removedCount++
+          @currentPlaylist.songs.splice(i, 1)
+        hashes[song.hash] = true
+      if removedCount
+        @savePlaylist "Removed #{ removedCount } duplicates"
+      else
+        @alert 'There are no duplicates here'
 
     readJson: (file, onError, cb) ->
       [cb, onError] = [onError, cb] if not cb?
