@@ -126,6 +126,7 @@ export default
     confirmingRemoval: false
     songFilter: ''
     addingAllSongs: false
+    hashToLabel: null
 
   computed:
     filteredSongs: ->
@@ -188,6 +189,18 @@ export default
             song.__label = "#{ author } - #{ song._songName }"
             @songs.push song
 
+    fillHashToLabel: ->
+      return if @hashToLabel?
+      @hashToLabel = {}
+      Promise.all @songs.map (song) =>
+        metadataPath = path.join(song._dir, 'metadata.dat')
+        new Promise (resolve) =>
+          fs.access metadataPath, fs.constants.F_OK, (err) =>
+            return resolve() if err
+            @readJson metadataPath, resolve, (metadata) =>
+              @hashToLabel[metadata.hash] = song.__label
+              resolve()
+
     alert: (text) ->
       @alerts.push text
       await after 4000
@@ -201,7 +214,14 @@ export default
       path.join @gameDir, paths...
 
     showPlaylist: (playlist) ->
-      @currentPlaylist = playlist
+      @$set this, 'currentPlaylist', playlist
+      if playlist?
+        if not @hashToLabel and @currentPlaylist.songs.some (s) -> not s.songName?
+          await @fillHashToLabel()
+        for song, i in @currentPlaylist.songs when not song.songName?
+          song.songName = @hashToLabel[song.hash]
+          @$set @currentPlaylist.songs, i, song
+
       @browsingSongs = false
       @changingName = false
       @confirmingRemoval = false
@@ -236,12 +256,15 @@ export default
     removeSong: (index) ->
       @currentPlaylist.songs.splice(index, 1)
 
-    readJson: (file, cb) ->
+    readJson: (file, onError, cb) ->
+      [cb, onError] = [onError, cb] if not cb?
       fs.readFile file, 'UTF-8', (err, content) =>
+        return onError() if err and onError?
         return @alert("Couldn't read #{ file }: #{ err.message }") if err
         try
           cb JSON.parse(content), content
         catch e
+          return onError() if onError?
           @alert("File #{ file } is not JSON: #{ e.message }")
 
     createMetadata: (songDir) ->
