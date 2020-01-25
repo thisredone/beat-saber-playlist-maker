@@ -1,6 +1,10 @@
 # Beat Saber Playlist Maker
 
 
+## Dependencies
+Since Beat Saber 1.6 you need to also install [PlaylistLoaderPlugin](https://github.com/rithik-b/PlaylistLoaderPlugin)
+
+
 ## Installation and updating
 Download the latest version from the releases page
 
