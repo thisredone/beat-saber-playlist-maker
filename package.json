@@ -5,8 +5,8 @@
   "description": "Playlist maker for Beat Saber",
   "author": "redka <thisredoned@gmail.com>",
   "scripts": {
-    "build": "vue-cli-service electron:build",
     "serve": "vue-cli-service electron:serve",
+    "build": "vue-cli-service electron:build",
     "postinstall": "electron-builder install-app-deps",
     "postuninstall": "electron-builder install-app-deps"
   },
@@ -16,8 +16,8 @@
     "vue": "^2.6.10"
   },
   "devDependencies": {
-    "@vue/cli-plugin-babel": "^4.1.0",
-    "@vue/cli-service": "^4.1.0",
+    "@vue/cli-plugin-babel": "~4.2.3",
+    "@vue/cli-service": "~4.2.3",
     "coffee-loader": "^0.9.0",
     "coffeescript": "^2.3.2",
     "electron": "^6.0.0",
