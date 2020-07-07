@@ -20,7 +20,7 @@
     "@vue/cli-service": "~4.2.3",
     "coffee-loader": "^0.9.0",
     "coffeescript": "^2.3.2",
-    "electron": "^6.0.0",
+    "electron": "^7.2.4",
     "stylus": "^0.54.7",
     "stylus-loader": "^3.0.2",
     "vue-cli-plugin-coffeescript": "^0.0.3",
